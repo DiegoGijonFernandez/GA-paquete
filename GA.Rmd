@@ -1,0 +1,231 @@
+---
+title: "GA"
+author: "Diego Gijón"
+date: "2025-05-29"
+output: html_document
+---
+
+## Optimización de la Función de Rastrigin con Algoritmos Genéticos en R
+
+Este proyecto trata sobre el uso de algoritmos genéticos (una técnica de inteligencia artificial inspirada en la evolución biológica) para resolver un problema matemático. El problema es encontrar el valor mínimo de una función matemática llamada función de Rastrigin, la cual es difícil de resolver porque tiene muchos "engaños", es decir, muchos mínimos locales. Esto hace que los métodos tradicionales de búsqueda se queden atascados en puntos incorrectos. Los algoritmos genéticos ayudan a explorar el espacio de soluciones de manera más eficiente, imitando procesos como la selección natural, la mutación y el cruce genético.
+
+```{r}
+library(GA)
+```
+
+Aquí se carga una librería de R llamada GA, que contiene funciones listas para implementar algoritmos genéticos. Sin esta librería, no podríamos usar los comandos necesarios para aplicar este tipo de algoritmo.
+
+### Definición de la Función de Rastrigin
+
+La función de Rastrigin es una función no convexa utilizada como prueba para algoritmos de optimización. Tiene un mínimo global en el origen y muchos mínimos locales, lo que la convierte en un desafío para los métodos de optimización.
+
+En este bloque de código se define la función de Rastrigin. Esta función toma como entrada un vector de números x, y produce como salida un valor que depende de esos números. Cuanto menor sea el resultado, mejor es la solución. Es importante notar que tiene una forma complicada: incluye términos cuadráticos y funciones trigonométricas, lo que genera un paisaje con muchas colinas y valles (mínimos locales), y solo un mínimo global en el punto donde todos los valores son cero.
+
+
+```{r}
+# Definición de la función de Rastrigin
+rastrigin <- function(x) {
+  n <- length(x)
+  10 * n + sum(x^2 - 10 * cos(2 * pi * x))
+}
+```
+
+### Aplicación del Algoritmo Genético
+
+En este paso se pone en marcha el algoritmo genético. La función ga() es la encargada de ejecutar todo el proceso.Ponemos que:
+
+-Use números reales (real-valued) en lugar de enteros. Utilizaremos el tipo "real-valued" ya que estamos trabajando con variables continuas. 
+
+-Use como “aptitud” la función de Rastrigin, pero negada (-rastrigin(x)), porque el algoritmo maximiza por defecto, y nosotros queremos minimizar.
+
+-Busque soluciones en el rango entre -5.12 y 5.12 (el dominio típico de esta función).
+
+-Use una población de 50 soluciones posibles por cada generación.
+
+-Haga un máximo de 100 iteraciones.
+
+-Detenga el proceso si no hay mejora en 50 iteraciones seguidas.
+
+-Este es el núcleo de todo el proceso: el algoritmo va evolucionando soluciones poco a poco, buscando mejorar la “aptitud” (es decir, encontrar valores que den un resultado más bajo en la función).
+
+
+
+```{r}
+# Aplicación del algoritmo genético
+GA_result <- ga(
+  type = "real-valued",
+  fitness = function(x) -rastrigin(x),  # Negamos la función porque GA maximiza por defecto
+  lower = rep(-5.12, 2),
+  upper = rep(5.12, 2),
+  popSize = 50,
+  maxiter = 100,
+  run = 50,
+  pmutation = 0.2,
+  seed = 123
+)
+```
+
+### 📊 Visualización de Resultados
+
+```{r}
+# Resumen de los resultados
+summary(GA_result)
+
+# Gráfico de la evolución del fitness
+plot(GA_result)
+```
+Finalmente, se muestran los resultados del algoritmo. La función summary() imprime un resumen del mejor valor encontrado y de cómo se comportó el algoritmo en general. Luego, plot() genera un gráfico que muestra cómo fue mejorando la solución a lo largo de las generaciones. Este gráfico es útil para ver si el algoritmo encontró un buen mínimo y si fue eficiente.
+
+🔵 Línea Azul (Mean)
+Esta línea representa el promedio de aptitud de toda la población en cada generación. Al principio, el promedio es muy malo (valores bajos, por debajo de -30), pero mejora rápidamente en las primeras generaciones. Luego, oscila mucho, lo que significa que las soluciones en la población varían mucho en calidad. Aunque mejora un poco, tiende a estabilizarse sin llegar a la mejor solución.
+
+🟢 Línea Verde (Best)
+Esta línea muestra la mejor solución encontrada en cada generación. En las primeras iteraciones, mejora muy rápidamente (lo cual es una buena señal), y después se mantiene casi constante, cerca de 0, que es el valor ideal para esta función. Eso significa que el algoritmo encontró una excelente solución desde temprano y la conservó.
+
+🟩 Área Fosforita (Median)
+El área verde sombreada representa la mediana de la población (el valor central). Ayuda a visualizar cómo se distribuyen las soluciones. En este caso, se puede ver que la mayoría de las soluciones están lejos de la mejor, ya que hay bastante separación entre el área verde y la línea verde. Esto indica que, aunque el algoritmo encontró una solución muy buena, no toda la población convergió a ese punto.
+
+### Conjunto de Datos: Expresión de miRNA en Tejidos Cervicales
+
+### Preparación del Entorno
+
+```{r, warning=FALSE}
+library(MLSeq)
+library(DaMiRseq)
+library(GARS)
+```
+
+## Carga y Preprocesamiento de los Datos
+
+En esta parte del proyecto, se trabaja con un conjunto de datos real de expresión genética, específicamente niveles de miRNA (pequeñas moléculas involucradas en la regulación genética). El conjunto contiene 714 miRNAs medidos en 58 muestras: 29 tumorales y 29 no tumorales. Estos datos están incluidos en un paquete de R llamado MLSeq.
+
+Primero se carga el archivo con los datos de expresión genética. Después se define la clase de cada muestra (tumoral o no tumoral), se crea un objeto especializado para análisis genómico (SummarizedExperiment), y se normalizan los datos. La normalización es crucial porque asegura que las comparaciones entre muestras sean justas, eliminando sesgos técnicos.
+
+```{r}
+# Cargar el conjunto de datos
+filepath <- system.file("extdata/cervical.txt", package = "MLSeq")
+cervical <- read.table(filepath, header = TRUE)
+
+# Crear el vector de clases
+class_vector <- data.frame(class = gsub('[0-9]+', '', colnames(cervical)))
+rownames(class_vector) <- colnames(cervical)
+
+# Crear un objeto SummarizedExperiment
+SE_obj <- DaMiR.makeSE(cervical, class_vector)
+
+# Filtrar y normalizar los datos
+datanorm <- DaMiR.normalization(SE_obj)
+```
+
+### Aplicación del Algoritmo Genético para Selección de Variables
+
+Utilizaremos la función `GARS_GA` del paquete `GARS` para identificar un subconjunto robusto de miRNAs que mejor discrimine entre las clases tumorales y no tumorales.
+
+Aquí se usa el algoritmo genético GARS_GA del paquete GARS para seleccionar un subconjunto pequeño (longitud 10) de miRNAs que discriminan mejor entre muestras tumorales y no tumorales. En lugar de explorar todos los posibles subconjuntos (lo cual sería inviable por la cantidad de combinaciones), el algoritmo evoluciona hacia las mejores combinaciones usando selección, cruce y mutación.
+
+```{r}
+# Crear vector de clases
+class_vector <- data.frame(class = gsub('[0-9]+', '', colnames(cervical)))
+rownames(class_vector) <- colnames(cervical)
+classes <- class_vector$class
+
+# Ejecutar GARS (sin modificar nada más)
+gars_result <- GARS_GA(data = datanorm, class = class_vector, chr.len = 10)
+  
+```
+
+Variables Seleccionadas: El algoritmo identificó 10 miRNAs clave que ayudan a distinguir entre tejido tumoral y no tumoral. miR-146a fue con diferencia la variable más usada, apareciendo más de 150,000 veces en combinaciones evaluadas. Esto indica que el algoritmo encontró que este miRNA es consistentemente útil para construir modelos clasificadores precisos. Le siguen miR-7 y miR-224, que también fueron muy frecuentes, aunque en menor proporción. Otros miRNAs como miR-21* y miR-145* también aparecen con una frecuencia alta, confirmando que son informativos para la clasificación tumoral/no tumoral.
+
+Evolución del Fitness: Muestra la mejora progresiva de la calidad de los subconjuntos seleccionados.
+
+Aplicación Práctica: Los miRNAs encontrados podrían ser biomarcadores diagnósticos o terapéuticos, útiles en medicina personalizada.
+
+### PCA
+
+Después de ejecutar el algoritmo genético GARS_GA, obtuvimos un objeto de clase especial llamado GarsSelectedFeatures, el cual contiene los resultados del proceso evolutivo. Dentro de este objeto, encontramos que las variables (miRNAs) seleccionadas por el algoritmo no se acceden con los métodos típicos como $ o con funciones auxiliares, sino que están almacenadas como nombres de columnas dentro del slot llamado data_red. Este slot es una matriz de expresión reducida, que contiene solo los datos de los 10 miRNAs seleccionados para todas las muestras del conjunto. Para obtener los nombres de estos miRNAs, simplemente usamos la función colnames() sobre ese slot: colnames(gars_result@data_red). Esto nos dio como resultado un vector con los nombres exactos de los miRNAs que el algoritmo determinó como los más relevantes para separar las clases tumorales y no tumorales.
+
+Con estos 10 miRNAs, procedimos a extraer sus valores de expresión desde la matriz original de datos normalizados (datanorm) y a construir una nueva matriz que contenía solo estas variables. Posteriormente, realizamos un Análisis de Componentes Principales (PCA), una técnica que permite reducir la dimensionalidad de los datos para visualizarlos de forma más sencilla. Al proyectar las muestras en un plano definido por las dos primeras componentes principales, obtuvimos un gráfico que muestra cómo se agrupan las muestras según su clase (tumoral o no tumoral). Esta visualización es muy útil, ya que si observamos una clara separación entre ambas clases, significa que los miRNAs seleccionados por el algoritmo genético tienen un fuerte poder discriminativo, validando la calidad del proceso de selección de variables.
+
+```{r}
+# Matriz de expresión normalizada
+expr_data <- assay(datanorm)
+
+# Obtener datos seleccionados por GA
+selected_vars <- colnames(gars_result@data_red)
+expr_selected <- expr_data[selected_vars, ]
+
+# PCA
+pca_result <- prcomp(t(expr_selected), scale. = TRUE)
+pca_df <- data.frame(
+  PC1 = pca_result$x[, 1],
+  PC2 = pca_result$x[, 2],
+  Class = class_vector$class
+)
+
+# Visualización
+library(ggplot2)
+ggplot(pca_df, aes(x = PC1, y = PC2, color = Class)) +
+  geom_point(size = 3) +
+  labs(title = "PCA con miRNAs seleccionados por GARS",
+       x = "Componente Principal 1", y = "Componente Principal 2") +
+  theme_minimal()
+
+
+```
+###  Validación Cruzada Manual (5x2CV) con miRNAs seleccionados
+
+Para evaluar el poder predictivo de los miRNAs seleccionados por el algoritmo genético, se implementó una validación cruzada manual siguiendo el esquema 5x2CV. Esta técnica consiste en repetir cinco veces un proceso de validación cruzada de dos particiones. En cada repetición, se divide aleatoriamente el conjunto de muestras en dos mitades: una para entrenamiento del modelo y otra para validación. Esto se repite en ambas direcciones y luego en cinco iteraciones distintas, lo que proporciona una estimación robusta y menos sesgada del rendimiento del modelo. Para cada división, se entrenó un modelo Random Forest y se calculó la precisión de clasificación en la partición de prueba. Finalmente, se promediaron las diez puntuaciones resultantes para obtener la precisión media y su desviación estándar, ofreciendo una medida clara del rendimiento esperado en nuevos datos.
+
+
+```{r}
+library(caret)
+library(ggplot2)
+
+# Top 5 miRNAs más usados según el gráfico
+top_vars <- c("miR-146a", "miR-7", "miR-224", "miR-145*", "miR-21*")
+
+# Extraer sus valores de expresión desde los datos normalizados
+expr_data <- assay(datanorm)
+expr_selected_top <- expr_data[top_vars, ]
+
+# Preparar el data frame para el modelo
+train_data <- as.data.frame(t(expr_selected_top))
+train_data$class <- as.factor(class_vector$class)
+
+# Validación cruzada 5x2 manual
+set.seed(123)
+resultados <- c()
+
+for (rep in 1:5) {
+  folds <- createFolds(train_data$class, k = 2, list = TRUE, returnTrain = TRUE)
+  
+  for (i in 1:2) {
+    train_idx <- folds[[i]]
+    test_idx <- setdiff(1:nrow(train_data), train_idx)
+    
+    train_fold <- train_data[train_idx, ]
+    test_fold <- train_data[test_idx, ]
+    
+    modelo <- train(
+      class ~ .,
+      data = train_fold,
+      method = "rf",
+      trControl = trainControl(method = "none")
+    )
+    
+    pred <- predict(modelo, newdata = test_fold)
+    acc <- sum(pred == test_fold$class) / length(pred)
+    resultados <- c(resultados, acc)
+  }
+}
+
+# Mostrar resultados
+mean_acc <- mean(resultados)
+sd_acc <- sd(resultados)
+
+cat("Precisión media usando top 5 miRNAs:", round(mean_acc, 3), "\n")
+cat("Desviación estándar:", round(sd_acc, 3), "\n")
+
+```
+
+La validación cruzada manual aplicada al conjunto de datos seleccionados por el algoritmo genético (GARS) arrojó una precisión media del 89.7% con una desviación estándar del 3.2%. Esta precisión indica que el modelo fue capaz de clasificar correctamente la mayoría de las muestras tumorales y no tumorales utilizando solo los 10 miRNAs seleccionados. Además, la baja desviación estándar sugiere que el rendimiento es estable a lo largo de las distintas particiones del conjunto de datos, lo que indica buena generalización y bajo riesgo de sobreajuste.
